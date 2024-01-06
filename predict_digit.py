@@ -43,7 +43,6 @@ class NeuralNetwork(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-
 def train_model(model, train_loader, criterion, T):
     # set optimizer
     opt = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
@@ -126,6 +125,8 @@ def predict_digit(model,image):
     return predicted.item()
 
 def digit_segmentation(image_path):
+    model.eval()
+
     # Read the image using OpenCV
     image = cv2.imread(image_path)
 
@@ -150,36 +151,55 @@ def digit_segmentation(image_path):
     return digit_regions
 
 def adjust_colors_and_predict(image_path):
+    model.eval()
+
     # Detect individual digit regions in the image
     digit_regions = digit_segmentation(image_path)
+
+    # Sort digit regions from left to right based on x-coordinate
+    digit_regions.sort(key=lambda x: (x[0], x[1]))
 
     # Read the image using OpenCV
     image = cv2.imread(image_path)
 
-    # Convert the image to grayscale using OpenCV
-    grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Iterate through detected digit regions
+    for region in digit_regions:
+        x, y, w, h = region
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    # Calculate average pixel value to determine the dominant color
-    avg_pixel_value = np.mean(grayscale_image)
+        # Display the image with bounding boxes around the detected digit regions
+        cv2.imshow('Digit Regions', image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-    # Check if the image has a predominantly light background (dark font)
-    if avg_pixel_value > 128:
-        # Invert colors if it's a light background (dark font)
-        inverted_image = cv2.bitwise_not(grayscale_image)
+        # Crop the digit region from the image
+        digit_image = image[y:y + h, x:x + w]
 
-        # Convert the inverted NumPy array to a PIL image
-        pil_inverted_image = Image.fromarray(inverted_image)
+        # Convert the image to grayscale using OpenCV
+        # grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        grayscale_image = cv2.cvtColor(digit_image, cv2.COLOR_BGR2GRAY)
 
-        # Use the PIL image for transformations
-        predicted_digit = predict_digit(model, pil_inverted_image)
-        print(f"The predicted digit in the image is: {predicted_digit}")
-    else:
-        # Convert the original image to a PIL image
-        pil_image = Image.fromarray(image)
+        # Calculate average pixel value to determine the dominant color
+        avg_pixel_value = np.mean(grayscale_image)
 
-        # Use the PIL image for transformations
-        predicted_digit = predict_digit(model, pil_image)
-        print(f"The predicted digit in the image is: {predicted_digit}")
+        # Check if the image has a predominantly light background (dark font)
+        if avg_pixel_value > 128:
+            # Invert colors if it's a light background (dark font)
+            inverted_image = cv2.bitwise_not(grayscale_image)
+
+            # Convert the inverted NumPy array to a PIL image
+            pil_inverted_image = Image.fromarray(inverted_image)
+
+            # Use the PIL image for transformations
+            predicted_digit = predict_digit(model, pil_inverted_image)
+            print(f"The predicted digit in the image is: {predicted_digit}")
+        else:
+            # Convert the original image to a PIL image
+            pil_image = Image.fromarray(image)
+
+            # Use the PIL image for transformations
+            predicted_digit = predict_digit(model, pil_image)
+            print(f"The predicted digit in the image is: {predicted_digit}")
 
 # save the model for future use
 def save_model(model, filepath):
@@ -193,16 +213,16 @@ if __name__ == '__main__':
     # train your model
     model=NeuralNetwork()
     criterion = nn.CrossEntropyLoss()
-    #train_model(model,train_loader,criterion,20)
+    # train_model(model,train_loader,criterion,20)
     model.load_state_dict(torch.load('Digits Recognition\mnist_digit_classifier.pth')) # -> if you have already train the model and saved
 
     model.eval()
     # predict the digit
     # Provide the path to your image
-    image_path = "Digits Recognition\img_1.jpg"
+    image_path = "Digits Recognition\img_5.png"
 
     # Call the function to adjust colors and predict the digit
     adjust_colors_and_predict(image_path)
 
     # save the trained model to a file
-    save_model(model, 'Digits Recognition\mnist_digit_classifier.pth') 
+    # save_model(model, 'Digits Recognition\mnist_digit_classifier.pth') 
